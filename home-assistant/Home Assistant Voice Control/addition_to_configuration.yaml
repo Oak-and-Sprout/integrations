@@ -1,0 +1,8 @@
+rest_command:
+  sprouttrack_log_activity:
+    url: "https://YOUR_SPROUTTRACK_URL.com/api/hooks/v1/babies/{{ baby_id }}/activities"
+    method: POST
+    headers:
+      Authorization: !secret sprouttrack_api_key
+      Content-Type: application/json
+    payload: "{{ payload }}"

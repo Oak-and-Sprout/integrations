@@ -1,0 +1,7 @@
+rest_command:
+  sprouttrack_baby_status:
+      url: "https://your_sprouttrack_domain.com/api/hooks/v1/babies/{{ baby_id }}/status"
+      method: GET
+      headers:
+        Authorization: !secret sprouttrack_api_key
+        Accept: "application/json"

@@ -1,0 +1,52 @@
+alias: SproutTrack - Overdue Feeding & Diaper Alert
+description: >-
+  Polls SproutTrack GET /babies/:babyId/status every 1 minute and sends a
+  message to the Signal group if feeding or diapers are overdue.
+triggers:
+  - trigger: time_pattern
+    minutes: /1
+conditions: []
+actions:
+  - action: rest_command.sprouttrack_baby_status
+    data:
+      baby_id: YOUR_BABY_ID
+    response_variable: status_response
+  - variables:
+      resp: "{{ status_response.content | default({}) }}"
+      warnings: >-
+        {{ resp.data.warnings if resp is defined and resp.data is defined else
+        {} }}
+      is_success: >-
+        {{ status_response.status == 200 and resp.success | default(false) |
+        bool }}
+      feed_overdue: "{{ warnings.feedOverdue | default(false) | bool }}"
+      diaper_overdue: "{{ warnings.diaperOverdue | default(false) | bool }}"
+      feed_min: "{{ warnings.feedMinutesSinceWarning | default(0) | int }}"
+      diaper_min: "{{ warnings.diaperMinutesSinceWarning | default(0) | int }}"
+      baby_name: >-
+        {{ resp.data.baby.firstName if resp is defined and resp.data is defined
+        and resp.data.baby is defined and resp.data.baby.firstName is defined
+        else 'your baby' }}
+  - if:
+      - condition: template
+        value_template: "{{ is_success and (feed_overdue or diaper_overdue) }}"
+    then:
+      - action: notify.signal_baby_group
+        data:
+          title: 🍼 SproutTrack Overdue Alert
+          message: |
+            {% if feed_overdue and diaper_overdue -%}
+            🚨 Both feeding + diaper are overdue
+            🍼 Feeding: **{{ feed_min }} min**
+            💩 Diaper: **{{ diaper_min }} min**
+            {% elif feed_overdue -%}
+            🍼 Feeding overdue by **{{ feed_min }} min** ({{ baby_name }})
+            {% elif diaper_overdue -%}
+            💩 Diaper overdue by **{{ diaper_min }} min** ({{ baby_name }})
+            {% endif -%}
+  - delay:
+      hours: 0
+      minutes: 15
+      seconds: 0
+      milliseconds: 0
+mode: single
