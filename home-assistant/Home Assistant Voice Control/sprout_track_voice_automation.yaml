@@ -1,0 +1,339 @@
+alias: SproutTrack - Voice Control
+description: Log feeding, breastfeeding, sleep, pumping, and bath with dictated details
+triggers:
+  - trigger: conversation
+    command:
+      - (Log | Lock | Long | Blog | Block | Love) [a] (bottle | bottled | bottles) for {ounces} (ounce | ounces)
+      - (Log | Lock | Long | Blog | Block | Love) [a] {ounces} (ounce | ounces) (bottle | feeding)
+    id: log_bottle
+  - trigger: conversation
+    command:
+      - (Start | Begin) (breastfeeding | nursing) [on] [the] {side}
+    id: start_breastfeeding
+  - trigger: conversation
+    command:
+      - (Switch | Change) (side | breast)
+    id: switch_breast_side
+  - trigger: conversation
+    command:
+      - (End | And | Stop) (breastfeeding | nursing)
+      - Breastfeeding done
+    id: end_breastfeeding
+  - trigger: conversation
+    command:
+      - Start (sleep | nap | now)
+      - Baby is sleeping
+      - Bedtime
+      - Nap time
+    id: start_sleep
+  - trigger: conversation
+    command:
+      - (End | And) sleep
+      - Wake up
+      - Baby woke up
+      - (End | And) (nap | now)
+    id: end_sleep
+  - trigger: conversation
+    command:
+      - (Start | Begin) (pump | pumping) [session]
+    id: start_pump
+  - trigger: conversation
+    command:
+      - (End | And | Stop) (pump | pumping | popping) [session]
+      - (End | And | Stop) (pump | pumping | popping) [session] {action}
+      - Pumping done
+      - Pumping done {action}
+      - (Finish | Finished) pumping
+      - (Finish | Finished) pumping {action}
+    id: end_pump
+  - trigger: conversation
+    command:
+      # Basic
+      - (Log | Lock | Long | Blog | Block | Love) [a] diaper [change]
+      # Both
+      - (Log | Lock | Long | Blog | Block | Love) [a] diaper with pee and poop
+      - (Log | Lock | Long | Blog | Block | Love) [a] diaper with poop and pee
+      - (Log | Lock | Long | Blog | Block | Love) [a] [both] diaper
+    id: log_diaper_both
+  - trigger: conversation
+    command:
+      # Wet only
+      - (Log | Lock | Long | Blog | Block | Love) [a] wet diaper
+      - (Log | Lock | Long | Blog | Block | Love) [a] pee diaper
+    id: log_diaper_wet
+  - trigger: conversation
+    command:
+      # Dirty only
+      - (Log | Lock | Long | Blog | Block | Love) [a] dirty diaper
+      - (Log | Lock | Long | Blog | Block | Love) [a] [poop|poopy] diaper
+    id: log_diaper_dirty
+  - trigger: conversation
+    command:
+      - (Log | Lock | Long | Blog | Block | Love) [a] [full] bath[s]
+    id: log_bath_blank
+  - trigger: conversation
+    command:
+      - (Log | Lock | Long | Blog | Block | Love) [a] [full] bath[s] with shampoo
+    id: log_bath_shampoo
+  - trigger: conversation
+    command:
+      - (Log | Lock | Long | Blog | Block | Love) [a] [full] bath[s] with soap
+    id: log_bath_soap
+  - trigger: conversation
+    command:
+      - (Log | Lock | Long | Blog | Block | Love) [a] [full] bath[s] with soap and shampoo
+      - (Log | Lock | Long | Blog | Block | Love) [a] [full] bath[s] with shampoo and soap
+    id: log_bath_both
+actions:
+  - variables:
+      ounces_num: >
+        {% set raw = trigger.slots.ounces | default('') | lower | trim %} {% set
+        word_map = {
+          'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+          'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+          'eleven': 11, 'twelve': 12,
+          'half': 0.5, 'a half': 0.5
+        } %} {% if raw in word_map %}
+          {{ word_map[raw] | float }}
+        {% elif 'and a half' in raw or 'and half' in raw %}
+          {% set base_raw = raw | replace('and a half','') | replace('and half','') | trim %}
+          {% set base = word_map.get(base_raw, base_raw | int(0)) %}
+          {{ base | float + 0.5 }}
+        {% elif 'point' in raw or 'dot' in raw %}
+          {% set temp = raw %}
+          {% for w, n in word_map.items() %}
+            {% set temp = temp | replace(w, n | string) %}
+          {% endfor %}
+          {% set cleaned = temp | replace('point', '.') | replace('dot', '.') | replace(' ', '') | replace('and', '.') %}
+          {{ cleaned | float(0) }}
+        {% elif '.' in raw or (raw | int(0) != 0) or raw == '0' or raw == '0.0'
+        %}
+          {{ raw | float(0) }}
+        {% else %}
+          {{ word_map.get(raw, 0) | float }}
+        {% endif %}
+      pump_action: >
+        {% set raw = (trigger.slots.action | default('stored')) | lower | trim
+        %} {% if 'discard' in raw or 'trash' in raw or 'thrown' in raw or
+        'threw' in raw or 'throw' in raw %}
+          DISCARDED
+        {% elif 'store' in raw %}
+          STORED
+        {% elif 'fed' in raw or 'feed' in raw or 'used' in raw %}
+          USED
+        {% else %}
+          STORED
+        {% endif %}
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: log_bottle
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "feed",
+                  "feedType": "BOTTLE",
+                  "action": "log",
+                  "amount": {{ ounces_num }},
+                  "unitAbbr": "OZ",
+                  "duration": 15
+                }
+          - set_conversation_response: |
+              Logged a {{ ounces_num }} ounce bottle feeding.
+      - conditions:
+          - condition: trigger
+            id: start_breastfeeding
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "feed",
+                  "feedType": "BREAST",
+                  "action": "start",
+                  "side": "{{ trigger.slots.side | upper }}"
+                }
+          - set_conversation_response: |
+              Starting breastfeeding on the {{ trigger.slots.side }} side.
+      - conditions:
+          - condition: trigger
+            id: switch_breast_side
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: "{\"type\": \"feed\", \"feedType\": \"BREAST\", \"action\": \"switch\"}"
+          - set_conversation_response: Switched breastfeeding side.
+      - conditions:
+          - condition: trigger
+            id: end_breastfeeding
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: "{\"type\": \"feed\", \"feedType\": \"BREAST\", \"action\": \"end\"}"
+          - set_conversation_response: Breastfeeding ended.
+      - conditions:
+          - condition: trigger
+            id: start_sleep
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: "{\"type\": \"sleep\", \"sleepType\": \"NAP\", \"action\": \"start\"}"
+          - set_conversation_response: Starting nap.
+      - conditions:
+          - condition: trigger
+            id: end_sleep
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: "{\"type\": \"sleep\", \"action\": \"end\"}"
+          - set_conversation_response: Sleep ended.
+      - conditions:
+          - condition: trigger
+            id: start_pump
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "pump",
+                  "action": "start"
+                }
+          - set_conversation_response: Starting pumping session.
+      - conditions:
+          - condition: trigger
+            id: end_pump
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "pump",
+                  "action": "end"
+                  {%- if trigger.slots.action is defined %},
+                  "pumpAction": "{{ pump_action }}"
+                  {%- endif %}
+                }
+          - set_conversation_response: |
+              {% if trigger.slots.action is defined %}
+                Ended pumping. {{ pump_action | lower }}.
+              {% else %}
+                Pumping session ended.
+              {% endif %}
+      - conditions:
+          - condition: trigger
+            id: log_diaper_both
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "diaper",
+                  "diaperType": "BOTH"
+                }
+          - set_conversation_response: |
+              Logged diaper change.
+      - conditions:
+          - condition: trigger
+            id: log_diaper_wet
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "diaper",
+                  "diaperType": "WET"
+                }
+          - set_conversation_response: |
+              Logged wet diaper change.
+      - conditions:
+          - condition: trigger
+            id: log_diaper_dirty
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "diaper",
+                  "diaperType": "DIRTY"
+                }
+          - set_conversation_response: |
+              Logged dirty diaper change.
+      - conditions:
+          - condition: trigger
+            id: log_bath_blank
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "bath",
+                  "bathType": "Full Bath",
+                  "soapUsed": false,
+                  "shampooUsed": false
+                }
+          - set_conversation_response: |
+              Logged a bath with water only.
+      - conditions:
+          - condition: trigger
+            id: log_bath_soap
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "bath",
+                  "bathType": "Full Bath",
+                  "soapUsed": true,
+                  "shampooUsed": false
+                }
+          - set_conversation_response: |
+              Logged a bath with soap.
+      - conditions:
+          - condition: trigger
+            id: log_bath_shampoo
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "bath",
+                  "bathType": "Full Bath",
+                  "soapUsed": false,
+                  "shampooUsed": true
+                }
+          - set_conversation_response: |
+              Logged a bath with shampoo.
+      - conditions:
+          - condition: trigger
+            id: log_bath_both
+        sequence:
+          - action: rest_command.sprouttrack_log_activity
+            data:
+              baby_id: YOUR_BABY_ID
+              payload: |
+                {
+                  "type": "bath",
+                  "bathType": "Full Bath",
+                  "soapUsed": true,
+                  "shampooUsed": true
+                }
+          - set_conversation_response: |
+              Logged a bath with soap and shampoo.
+
+mode: single
