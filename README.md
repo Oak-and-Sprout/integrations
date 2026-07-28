@@ -4,6 +4,10 @@ A community collection of integrations built on top of [Sprout Track](https://gi
 
 If you've hooked Sprout Track into Home Assistant, setup a push button box, put it on a Stream Deck, or written a bit of glue code by hand, this is where you share it.
 
+Most integrations talk to Sprout Track through its webhook API. Official reference:
+
+**[Webhook API documentation](https://github.com/Oak-and-Sprout/sprout-track/blob/main/documentation/Admin-Documentation/webhook-api.md)**
+
 ## Integrations
 
 ### Elgato
