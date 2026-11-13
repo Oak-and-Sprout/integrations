@@ -16,6 +16,7 @@ Most integrations talk to Sprout Track through its webhook API. Official referen
 
 ### Home Assistant
 
+- **[Sprout Track integration (HACS)](home-assistant/ha-sprout-track/):** Full Home Assistant integration set up in the UI: a device per baby with sensors (last feed, diaper, sleep, medicine and more), overdue warnings, buttons for one-tap logging and actions for automations.
 - **[Voice Control](home-assistant/Home%20Assistant%20Voice%20Control/):** Voice-driven Sprout Track actions via a Home Assistant automation and `rest_command`.
 - **[Signal Overdue Notifications](home-assistant/Home%20Assistant%20Signal%20Overdue%20Notifications/):** Notifies a Signal group when feed or diaper is overdue. Works with other Home Assistant notify targets too.
 
